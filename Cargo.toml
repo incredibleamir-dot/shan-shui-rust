@@ -1,0 +1,54 @@
+[package]
+name = "shan-shui"
+version = "0.2.0"
+edition = "2021"
+description = "Procedural Chinese landscape paintings, ported from {Shan, Shui}* | realtime studio"
+license = "MIT"
+repository = "https://github.com/incredibleamir-dot/shan-shui-rust"
+keywords = ["generative-art", "procedural", "landscape", "svg", "egui"]
+categories = ["graphics", "gui"]
+rust-version = "1.95"
+
+[lib]
+name = "shan_shui"
+path = "src/lib.rs"
+
+[[bin]]
+name = "shan-shui"
+path = "src/main.rs"
+
+[[bin]]
+name = "shan-shui-gui"
+path = "src/gui_main.rs"
+required-features = ["gui"]
+
+[features]
+default = ["gui"]
+gui = ["dep:eframe"]
+# Keep a console attached to the GUI for stderr and panic messages while
+# developing. Release/explorer launches hide the console by default.
+gui-console = []
+
+[dependencies]
+ab_glyph = "0.2.32"
+eframe = { version = "0.37", default-features = false, features = ["glow", "default_fonts"], optional = true }
+png = "0.18.1"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_UI_Controls_Dialogs",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
