@@ -8,6 +8,7 @@
 
 A native Rust port of [LingDong-'s {Shan, Shui}\*](https://github.com/LingDong-/shan-shui-inf) — the original browser landscape generator — with a realtime desktop studio, a reproducible CLI, and PNG/SVG export.
 
+[![Build](https://img.shields.io/github/actions/workflow/status/incredibleamir-dot/shan-shui-rust/rust.yml?label=build&branch=master)](https://github.com/incredibleamir-dot/shan-shui-rust/actions/workflows/rust.yml)
 [![GitHub Repo](https://img.shields.io/badge/GitHub-shan--shui--rust-181717?logo=github)](https://github.com/incredibleamir-dot/shan-shui-rust)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Rust 1.95+](https://img.shields.io/badge/Rust-1.95%2B-orange.svg)](https://www.rust-lang.org/)
