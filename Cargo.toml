@@ -2,7 +2,7 @@
 name = "shan-shui"
 version = "0.2.0"
 edition = "2021"
-description = "Procedural Chinese landscape paintings, ported from {Shan, Shui}* | realtime studio"
+description = "Procedural Chinese landscape paintings, ported from {Shan, Shui}*, with a realtime studio"
 license = "MIT"
 repository = "https://github.com/incredibleamir-dot/shan-shui-rust"
 keywords = ["generative-art", "procedural", "landscape", "svg", "egui"]

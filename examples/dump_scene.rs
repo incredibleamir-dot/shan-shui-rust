@@ -17,8 +17,8 @@ fn color(value: Option<shan_shui::Color>) -> String {
     }
 }
 
-/// Close to Python's `repr(str)` for the strings used by the generator.
-fn py_repr(text: &str) -> String {
+/// Stable string quoting for the strings used by the generator.
+fn stable_repr(text: &str) -> String {
     let has_single = text.contains('\'');
     let has_double = text.contains('"');
     let quote = if has_single && !has_double { '"' } else { '\'' };
@@ -91,14 +91,14 @@ fn shape_text(shape: &Shape) -> String {
             f(t.size),
             t.anchor,
             f(t.angle),
-            py_repr(&t.text)
+            stable_repr(&t.text)
         ),
         Shape::Seal(s) => format!(
             "seal {},{} size={} text={}",
             f(s.x),
             f(s.y),
             f(s.size),
-            py_repr(&s.text)
+            stable_repr(&s.text)
         ),
     }
 }

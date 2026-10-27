@@ -1,8 +1,8 @@
 //! Procedural Chinese landscape paintings.
 //!
-//! This crate is a faithful Rust port of the original Python `shan_shui`
-//! package. The generator is deterministic: the same seed and options
-//! produce the same shapes.
+//! This crate is a faithful Rust port of the original {Shan, Shui}*
+//! browser generator. The generator is deterministic: the same seed and
+//! options produce the same shapes.
 
 pub mod architecture;
 pub mod color;

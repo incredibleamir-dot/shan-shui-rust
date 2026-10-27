@@ -10,7 +10,7 @@ fn count(limit: f64) -> usize {
     limit.ceil().max(0.0) as usize
 }
 
-fn py_mod2(value: usize) -> bool {
+fn mod2(value: usize) -> bool {
     value % 2 != 0
 }
 
@@ -232,7 +232,7 @@ pub fn mountain(
         for i in 0..ptlist.len() {
             for j in 0..ptlist[i].len() {
                 let ns = ctx.noise.noise(i as f64 * 0.2, j as f64 * 0.05, seed);
-                if py_mod2(j) && ns.powi(4) < 0.012 && ptlist[i][j].1.abs() / h < 0.3 {
+                if mod2(j) && ns.powi(4) < 0.012 && ptlist[i][j].1.abs() / h < 0.3 {
                     veglist.push(ptlist[i][j]);
                 }
             }

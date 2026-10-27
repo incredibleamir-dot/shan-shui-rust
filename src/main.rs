@@ -1,4 +1,4 @@
-//! Command line front end matching the original Python `shan-shui` CLI, with
+//! Command line front end for the original {Shan, Shui}* generator, with
 //! an extra `--finish` preset and a few studio-oriented options.
 
 use std::path::PathBuf;

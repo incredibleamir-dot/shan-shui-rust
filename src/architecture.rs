@@ -1,6 +1,6 @@
 //! Huts, pavilions, pagodas, boats and transmission towers.
 //!
-//! Ported closely from the original Python module. In particular the order in
+//! Ported closely from the original generator. In particular the order in
 //! which random numbers are consumed is identical, so seeded paintings match.
 
 use std::f64::consts::PI;
@@ -24,7 +24,7 @@ fn flip_points(pts: &[Point]) -> Vec<Point> {
     pts.iter().map(|p| (-p.0, p.1)).collect()
 }
 
-/// Python's `mid_pt` with two arguments.
+/// The original mid-point helper with two arguments.
 fn mid2(a: Point, b: Point) -> Point {
     mid_pt2(a, b)
 }

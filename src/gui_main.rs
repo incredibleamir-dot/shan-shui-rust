@@ -80,6 +80,15 @@ const EXPORT_FOOTER_HEIGHT: f32 = 286.0;
 
 const DISPLAY_FAMILY: &str = "display";
 
+const CJK_FONTS: &[&str] = &[
+    "msyh.ttc",
+    "simsun.ttc",
+    "NotoSerifCJK-Regular.ttc",
+    "NotoSansCJK-Regular.ttc",
+    "Songti.ttc",
+    "PingFang.ttc",
+];
+
 // ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
@@ -2753,19 +2762,10 @@ fn install_fonts(ctx: &egui::Context) -> FontFamily {
         (FontFamily::Monospace, FontPriority::Lowest),
         (display.clone(), FontPriority::Lowest),
     ];
-    if !add_font(
-        ctx,
-        "studio-cjk",
-        &["msyh.ttc", "simsun.ttc"],
-        &fallback_families,
-    ) {
+    if !add_font(ctx, "studio-cjk", CJK_FONTS, &fallback_families) {
         let families = [(display.clone(), FontPriority::Highest)];
-        display_loaded = add_font(
-            ctx,
-            "studio-display-cjk",
-            &["msyh.ttc", "simsun.ttc"],
-            &families,
-        ) || display_loaded;
+        display_loaded =
+            add_font(ctx, "studio-display-cjk", CJK_FONTS, &families) || display_loaded;
     }
 
     if display_loaded {
@@ -2802,18 +2802,7 @@ fn add_font(
 }
 
 fn find_font(candidates: &[&str]) -> Option<PathBuf> {
-    let mut dirs = Vec::new();
-    if let Some(windir) = std::env::var_os("WINDIR") {
-        dirs.push(PathBuf::from(windir).join("Fonts"));
-    }
-    if let Some(local) = std::env::var_os("LOCALAPPDATA") {
-        dirs.push(
-            PathBuf::from(local)
-                .join("Microsoft")
-                .join("Windows")
-                .join("Fonts"),
-        );
-    }
+    let dirs = shan_shui::render::text::font_dirs();
     for candidate in candidates {
         for dir in &dirs {
             let path = dir.join(candidate);

@@ -12,9 +12,9 @@ fn clamp(value: f64, lo: f64, hi: f64) -> f64 {
     }
 }
 
-/// Python's `round()` uses round-half-to-even.
+/// Round half to even, matching the reference renderer.
 #[inline]
-pub fn py_round(value: f64) -> f64 {
+pub fn round_half_even(value: f64) -> f64 {
     value.round_ties_even()
 }
 
@@ -53,18 +53,18 @@ impl Color {
     pub fn mix(self, other: Self, t: f64) -> Self {
         let t = clamp(t, 0.0, 1.0);
         Self::new(
-            py_round(self.r as f64 + (other.r as f64 - self.r as f64) * t) as i32,
-            py_round(self.g as f64 + (other.g as f64 - self.g as f64) * t) as i32,
-            py_round(self.b as f64 + (other.b as f64 - self.b as f64) * t) as i32,
+            round_half_even(self.r as f64 + (other.r as f64 - self.r as f64) * t) as i32,
+            round_half_even(self.g as f64 + (other.g as f64 - self.g as f64) * t) as i32,
+            round_half_even(self.b as f64 + (other.b as f64 - self.b as f64) * t) as i32,
             self.a + (other.a - self.a) * t,
         )
     }
 
     pub fn scale(self, factor: f64) -> Self {
         Self::new(
-            py_round(self.r as f64 * factor) as i32,
-            py_round(self.g as f64 * factor) as i32,
-            py_round(self.b as f64 * factor) as i32,
+            round_half_even(self.r as f64 * factor) as i32,
+            round_half_even(self.g as f64 * factor) as i32,
+            round_half_even(self.b as f64 * factor) as i32,
             self.a,
         )
     }
@@ -86,7 +86,12 @@ impl Color {
     }
 
     pub fn rgba(self) -> (u8, u8, u8, u8) {
-        (self.r, self.g, self.b, py_round(self.a * 255.0) as u8)
+        (
+            self.r,
+            self.g,
+            self.b,
+            round_half_even(self.a * 255.0) as u8,
+        )
     }
 
     /// Blend toward another color in linear-ish RGB space (used by the UI).

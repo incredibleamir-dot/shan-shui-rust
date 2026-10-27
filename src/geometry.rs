@@ -1,6 +1,6 @@
 use crate::shapes::Point;
 
-/// Average of a list of points, preserving Python's accumulation order.
+/// Average of a list of points, preserving the reference accumulation order.
 pub fn mid_pt(plist: &[Point]) -> Point {
     let n = plist.len() as f64;
     let mut sx = 0.0;
@@ -267,7 +267,7 @@ mod tests {
     #[test]
     fn point_in_poly_works() {
         let square = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)];
-        // Keep the test ray away from a corner: the parity test used by the
+        // Keep the test ray away from a corner: the even-odd test used by the
         // generator counts both edges at an exact vertex crossing.
         assert!(pt_in_poly((5.0, 7.0), &square));
         assert!(!pt_in_poly((15.0, 7.0), &square));

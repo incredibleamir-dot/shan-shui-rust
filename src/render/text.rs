@@ -1,7 +1,8 @@
 //! Text, seal and font handling.
 //!
-//! Pillow uses the Windows CJK fonts (SimSun / Microsoft YaHei) for the
-//! inscription and seals. We load the same files through `ab_glyph`.
+//! The renderer looks for a CJK serif face in the system font directories
+//! (SimSun/Microsoft YaHei on Windows, Songti/PingFang on macOS, Noto CJK or
+//! WenQuanYi on Linux) and loads it through `ab_glyph`.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -17,21 +18,93 @@ fn font_cache() -> &'static Mutex<HashMap<String, Option<Arc<FontVec>>>> {
     CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-fn windows_fonts_dir() -> Option<std::path::PathBuf> {
-    let windir = std::env::var_os("WINDIR")?;
-    Some(std::path::PathBuf::from(windir).join("Fonts"))
+/// System font directories searched for inscription and seal faces.
+pub fn font_dirs() -> Vec<std::path::PathBuf> {
+    let mut dirs = Vec::new();
+    if let Some(windir) = std::env::var_os("WINDIR") {
+        dirs.push(std::path::PathBuf::from(windir).join("Fonts"));
+    }
+    if let Some(local) = std::env::var_os("LOCALAPPDATA") {
+        dirs.push(
+            std::path::PathBuf::from(local)
+                .join("Microsoft")
+                .join("Windows")
+                .join("Fonts"),
+        );
+    }
+    for dir in [
+        "/System/Library/Fonts",
+        "/System/Library/Fonts/Supplemental",
+        "/Library/Fonts",
+        "/usr/share/fonts",
+        "/usr/share/fonts/opentype/noto",
+        "/usr/share/fonts/truetype/noto",
+        "/usr/share/fonts/truetype/wqy",
+        "/usr/share/fonts/truetype/arphic",
+        "/usr/share/fonts/truetype/dejavu",
+        "/usr/share/fonts/TTF",
+        "/usr/share/fonts/OTF",
+        "/usr/local/share/fonts",
+    ] {
+        dirs.push(std::path::PathBuf::from(dir));
+    }
+    if let Some(home) = std::env::var_os("HOME") {
+        let home = std::path::PathBuf::from(home);
+        dirs.push(home.join("Library").join("Fonts"));
+        dirs.push(home.join(".local").join("share").join("fonts"));
+        dirs.push(home.join(".fonts"));
+    }
+    if let Some(data) = std::env::var_os("XDG_DATA_HOME") {
+        dirs.push(std::path::PathBuf::from(data).join("fonts"));
+    }
+    dirs
 }
 
 fn candidate_names(family: &str) -> &'static [&'static str] {
     if family.to_lowercase().contains("verdana") {
-        &["verdana.ttf", "arial.ttf", "segoeui.ttf"]
+        &[
+            "verdana.ttf",
+            "Verdana.ttf",
+            "arial.ttf",
+            "Arial.ttf",
+            "segoeui.ttf",
+            "Helvetica.ttc",
+            "DejaVuSans.ttf",
+        ]
     } else {
         &[
             "simsun.ttc",
             "msyh.ttc",
             "simhei.ttf",
             "NotoSerifCJK-Regular.ttc",
+            "NotoSerifCJK.ttc",
+            "NotoSansCJK-Regular.ttc",
+            "NotoSansCJK.ttc",
+            "Songti.ttc",
+            "STSong.ttf",
+            "STHeiti Light.ttc",
+            "PingFang.ttc",
+            "wqy-zenhei.ttc",
+            "wqy-microhei.ttc",
+            "uming.ttc",
+            "ukai.ttc",
+            "arialuni.ttf",
+            "Arial Unicode.ttf",
+            "DejaVuSans.ttf",
         ]
+    }
+}
+
+fn load_font_file(path: &std::path::Path) -> Option<FontVec> {
+    let bytes = std::fs::read(path).ok()?;
+    let is_collection = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("ttc"));
+    if is_collection {
+        FontVec::try_from_vec_and_index(bytes, 0).ok()
+    } else {
+        FontVec::try_from_vec(bytes).ok()
     }
 }
 
@@ -45,25 +118,14 @@ fn load_font(family: &str) -> Option<Arc<FontVec>> {
     if let Some(entry) = cache.get(&key) {
         return entry.clone();
     }
-    let Some(dir) = windows_fonts_dir() else {
-        cache.insert(key, None);
-        return None;
-    };
+    let dirs = font_dirs();
     let mut found: Option<Arc<FontVec>> = None;
-    for name in candidate_names(family) {
-        let path = dir.join(name);
-        let Ok(bytes) = std::fs::read(&path) else {
-            continue;
-        };
-        let is_collection = name.to_ascii_lowercase().ends_with(".ttc");
-        let font = if is_collection {
-            FontVec::try_from_vec_and_index(bytes, 0)
-        } else {
-            FontVec::try_from_vec(bytes)
-        };
-        if let Ok(font) = font {
-            found = Some(Arc::new(font));
-            break;
+    'search: for name in candidate_names(family) {
+        for dir in &dirs {
+            if let Some(font) = load_font_file(&dir.join(name)) {
+                found = Some(Arc::new(font));
+                break 'search;
+            }
         }
     }
     cache.insert(key, found.clone());

@@ -1,6 +1,8 @@
 # How the landscape is grown
 
-This document describes the generator and renderer behind Shan Shui Studio: how a seed becomes a composition, how the composition becomes geometry, and how the geometry becomes a PNG or SVG. It follows the same order as the code.
+This document describes the Rust generator and renderer behind Shan Shui Studio: how a seed becomes a composition, how the composition becomes geometry, and how the geometry becomes a PNG or SVG. It follows the same order as the code.
+
+The implementation is a direct Rust port of the original [{Shan, Shui}\* browser generator](https://github.com/LingDong-/shan-shui-inf). The [project README](README.md) covers the application; this document covers the machinery.
 
 The guiding constraint is **determinism**. Every run with the same seed and options must produce exactly the same shapes in exactly the same order. There is no global random state, no clock read during composition, and no dependence on iteration order of a hash map. The few places that use a time-based seed do so only when the caller deliberately omits a seed.
 
@@ -19,7 +21,7 @@ pub enum Seed {
 }
 ```
 
-The seed is converted to its JSON literal (`42` or `"moon-gate"`), then Base64-encoded. The resulting bytes are interpreted as little-endian base-128 digits and accumulated modulo `M`:
+The seed is converted to its [JSON](https://www.json.org/json-en.html) literal (`42` or `"moon-gate"`), then [Base64](https://datatracker.ietf.org/doc/html/rfc4648)-encoded. The resulting bytes are interpreted as little-endian base-128 digits and accumulated modulo `M`:
 
 ```
 z = sum(byte[i] * 128^i) mod M
@@ -33,9 +35,9 @@ Q = 999983
 M = P * Q = 999962000357
 ```
 
-This mirrors the Python reference and gives integer and text seeds the same treatment.
+Integer and text seeds therefore receive the same treatment, matching the original generator's seed hashing.
 
-### 1.2 Blum-Blum-Shub
+### 1.2 [Blum-Blum-Shub](https://en.wikipedia.org/wiki/Blum_Blum_Shub)
 
 The internal state is advanced by squaring modulo `M`:
 
@@ -44,7 +46,7 @@ s[n+1] = s[n]^2 mod M
 u[n]   = s[n] / M
 ```
 
-The result `u[n]` is in `[0, 1)`. The generator is not used for cryptography; a Blum-Blum-Shub sequence is simply a compact, deterministic source of uniform values that is easy to reproduce in another language.
+The result `u[n]` is in `[0, 1)`. The generator is not used for cryptography; a Blum-Blum-Shub sequence is simply a compact, deterministic source of uniform values that is fully specified by the seed.
 
 Before the first value is returned, the state is advanced ten times. The initial state is found by adding a counter to the hash until the value is coprime with `M` (not divisible by `P` or `Q`, not `0` or `1`).
 
@@ -64,7 +66,7 @@ let brush = base.child("brush");
 "<parent-seed>|<label>"
 ```
 
-and hashes it again. The labels are deliberately Python-repr-shaped, because the Python reference uses the same strings:
+and hashes it again. The labels use a stable tuple-like syntax:
 
 ```
 ('chunk', 3)
@@ -75,13 +77,13 @@ and hashes it again. The labels are deliberately Python-repr-shaped, because the
 
 This is what makes the composition stable under local changes. If a tree gains an extra random call, it only shifts the stream of that tree's item; the mountains in another chunk are untouched.
 
-**Important:** the order of calls inside a stream still matters. Reordering two `random()` calls, or adding one before existing calls, changes every subsequent value in that stream. When porting or editing generator code, preserve call order unless you intend to change the artwork.
+**Important:** the order of calls inside a stream still matters. Reordering two `random()` calls, or adding one before existing calls, changes every subsequent value in that stream. When editing generator code, preserve call order unless you intend to change the artwork.
 
 ---
 
 ## 2. Noise
 
-The noise field is a faithful port of the Perlin-style `noise()` from p5.js, including its table size and wrapping rules:
+The noise field is a faithful port of the [Perlin-style `noise()`](https://p5js.org/reference/p5/noise/) from [p5.js](https://p5js.org/), including its table size and wrapping rules:
 
 - 4096 table entries (`PERLIN_SIZE = 4095`, inclusive),
 - x/y wrapping at 16 and z wrapping at 256,
@@ -89,7 +91,7 @@ The noise field is a faithful port of the Perlin-style `noise()` from p5.js, inc
 - amplitude falloff of 0.5,
 - quintic interpolation.
 
-The table itself is filled from the `noise` child stream. This is critical for parity: the noise is not a separate library with its own seeding scheme; it is part of the painting's seed.
+The table itself is filled from the `noise` child stream. This keeps the noise deterministic and tied to the painting's seed; it is not a separate library with its own seeding scheme.
 
 Noise is used for:
 
@@ -247,7 +249,7 @@ The sort is stable and uses explicit tie-breakers, so shape order is determinist
 
 ### 5.2 PNG rasterisation
 
-The rasteriser approximates Pillow's behaviour:
+The rasteriser uses a classic supersample-then-filter pipeline:
 
 1. Create a bitmap at `width * supersample` by `height * supersample`.
 2. Draw aliased polygons with a scanline fill.
@@ -255,7 +257,7 @@ The rasteriser approximates Pillow's behaviour:
 4. Draw circles and ellipse caps.
 5. Draw gradients by interpolating vertically or horizontally per pixel.
 6. Rasterise text as coverage using the CJK font (see §5.4).
-7. Downsample to the requested size with a separable Lanczos-3 filter.
+7. Downsample to the requested size with a separable [Lanczos-3](https://en.wikipedia.org/wiki/Lanczos_resampling) filter.
 8. Apply paper grain, then the finish preset.
 
 `supersample` is clamped to `1..=8`. The CLI default is 2, which gives 2× linear resolution before filtering.
@@ -273,7 +275,7 @@ factor  = grain / 255
 out     = round(orig * 0.35 + (orig * factor) * 0.65)
 ```
 
-This mirrors Pillow's `effect_noise` with a mean of 128 and a small sigma, then multiplies the paper. Grain is applied after downsampling, so it is fine-grained rather than blurred by the Lanczos filter. It is skipped when `paper` or `grain` is off.
+The two uniform values are combined with the [Box–Muller transform](https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform) to produce Gaussian noise with a mean of 128 and a small sigma, which is applied multiplicatively to the paper. Grain is applied after downsampling, so it is fine-grained rather than blurred by the Lanczos filter. It is skipped when `paper` or `grain` is off.
 
 #### Finish presets
 
@@ -291,7 +293,7 @@ All channels are clamped to `0..255` and rounded. The SVG path keeps the origina
 
 ### 5.3 SVG serialisation
 
-The SVG writer consumes the same shape list as the rasteriser:
+The [SVG](https://developer.mozilla.org/en-US/docs/Web/SVG) writer consumes the same shape list as the rasteriser:
 
 - `Poly` → `<polygon>` with optional `stroke` and `stroke-width`
 - `Circle` → `<circle>`
@@ -305,18 +307,17 @@ The viewport is:
 <svg viewBox="xmin 0 width height" width="output_width" height="output_height">
 ```
 
-so scene units stay 1:1 while the exported pixel dimensions can be larger. Numbers are formatted to two decimals with trailing zeros removed, which keeps diffs readable and matches the Python writer. The paper layer is an optional background rect. Grain is an SVG `feTurbulence` filter applied to a translucent multiply rectangle.
+so scene units stay 1:1 while the exported pixel dimensions can be larger. Numbers are formatted to two decimals with trailing zeros removed, which keeps diffs readable and stable. The paper layer is an optional background rect. Grain is an SVG `feTurbulence` filter applied to a translucent multiply rectangle.
 
 Text uses a CJK font stack in the SVG (`SimSun`, `Songti SC`, `STSong`, `serif`), so vector text remains selectable and editable in a browser or vector editor.
 
 ### 5.4 Fonts and the seal
 
-The raster path uses `ab_glyph` with the first available font from:
-
-- Windows: `simsun.ttc`, `msyh.ttc`, `simhei.ttf`, `arialuni.ttf`, then Arial;
-- the display UI uses the bundled/system sans stack.
+The raster path uses [`ab_glyph`](https://docs.rs/ab_glyph) and searches the standard system font directories on Windows, macOS and Linux. The candidate list starts with SimSun, Microsoft YaHei and SimHei, then Noto Serif/Sans CJK, Songti, PingFang, WenQuanYi and AR PL faces, with Arial and DejaVu as Latin fallbacks.
 
 Glyphs are rasterised into a coverage buffer, then composited with alpha. Rotated text is drawn into a layer and sampled with bilinear interpolation so the edges stay smooth. The seal is a filled rounded square with the character centred in a contrasting cream colour.
+
+The Studio interface uses egui's bundled sans font, with Georgia, Segoe UI and a CJK fallback loaded when they are available.
 
 The SVG path does not embed fonts. If a viewer lacks a CJK font, it will substitute; the PNG path is the reliable way to get an exact inscription.
 
@@ -398,7 +399,7 @@ The native Save dialog only selects a **base path**; the export button commits t
 
 ---
 
-## 7. Determinism and parity checks
+## 7. Determinism and regression checks
 
 The following invariants are enforced by tests and by construction:
 
@@ -417,13 +418,13 @@ cargo test --bin shan-shui-gui
 
 The library tests cover RNG determinism and normalisation, Base64 compatibility, point-in-polygon, triangulation and render cancellation. The GUI tests cover camera clamping and rail mapping, panorama UV coverage across every camera/zoom/aspect combination, preview and export sizing, output path rules and seed slugs.
 
-For a deeper comparison against the Python reference, use:
+For a direct look at the generated geometry, use:
 
 ```bash
 cargo run --release --example dump_scene -- --seed 42 --width 480 --height 320
 ```
 
-The output is a stable text dump of the scene. Compare it with the Python `tools/dump_scene.py` output for the same seed and dimensions to inspect shape-level parity.
+The output is a stable text dump of the scene. Diff it between runs, or use it to compare shape order and geometry when extending the generator.
 
 ---
 
@@ -471,3 +472,20 @@ Add a planner tag or spawn it from an existing generator, give it a stable child
 - The camera range is deliberately bounded to `-4000..4000`; the underlying world is infinite, but the cached panorama and the rail are not.
 
 The point of the system is not to hide these boundaries, but to keep the painting itself deterministic, inspectable and pleasant to explore.
+
+---
+
+## References
+
+- [{Shan, Shui}\* — original browser generator](https://github.com/LingDong-/shan-shui-inf)
+- [p5.js `noise()` reference](https://p5js.org/reference/p5/noise/)
+- [Perlin noise](https://en.wikipedia.org/wiki/Perlin_noise)
+- [Blum-Blum-Shub](https://en.wikipedia.org/wiki/Blum_Blum_Shub)
+- [RFC 4648: Base64](https://datatracker.ietf.org/doc/html/rfc4648)
+- [JSON](https://www.json.org/json-en.html)
+- [Lanczos resampling](https://en.wikipedia.org/wiki/Lanczos_resampling)
+- [Box–Muller transform](https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform)
+- [SVG](https://developer.mozilla.org/en-US/docs/Web/SVG)
+- [eframe / egui](https://github.com/emilk/egui)
+- [`ab_glyph`](https://docs.rs/ab_glyph)
+- [Windows `GetSaveFileNameW`](https://learn.microsoft.com/en-us/windows/win32/api/commdlg/nf-commdlg-getsavefilenamew)

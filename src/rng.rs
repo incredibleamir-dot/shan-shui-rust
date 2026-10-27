@@ -7,7 +7,7 @@ const M: i128 = P * Q;
 
 const B64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-/// A seed is either an integer or a string, mirroring the Python API.
+/// A seed is either an integer or a string, matching the original API.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Seed {
     Int(i64),
@@ -111,7 +111,7 @@ fn b64_encode(data: &[u8]) -> Vec<u8> {
 fn seed_hash(seed: &Seed) -> i128 {
     let json = seed.json_literal();
     let encoded = b64_encode(json.as_bytes());
-    // Python: z += code * 128**i, i.e. little-endian base-128 digits.
+    // z += code * 128**i, i.e. little-endian base-128 digits.
     let mut z: i128 = 0;
     let mut place: i128 = 1;
     for byte in encoded {
@@ -197,7 +197,7 @@ impl Rng {
         (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos()
     }
 
-    /// Child generators use the Python-compatible label string, e.g.
+    /// Child generators use a stable tuple-like label string, e.g.
     /// `"mountain|('chunk', 0)"`.
     pub fn child(&self, label: &str) -> Rng {
         Rng::new(Some(Seed::Text(format!(
@@ -213,7 +213,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn base64_matches_python() {
+    fn base64_matches_reference() {
         assert_eq!(b64_encode(b""), b"");
         assert_eq!(b64_encode(b"f"), b"Zg==");
         assert_eq!(b64_encode(b"fo"), b"Zm8=");

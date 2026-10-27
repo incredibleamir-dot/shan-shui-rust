@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::architecture as arch;
-use crate::color::{get_palette, py_round, Palette};
+use crate::color::{get_palette, round_half_even, Palette};
 use crate::context::Ctx;
 use crate::mountains::{dist_mount, flat_mount, mountain};
 use crate::noise::Noise;
@@ -92,8 +92,8 @@ fn depth_for(y: f64) -> f64 {
     clamp((y - 260.0) / 520.0, 0.3, 1.0)
 }
 
-/// Python-compatible float formatting for RNG child labels.
-fn py_float_str(value: f64) -> String {
+/// Reference-compatible float formatting for RNG child labels.
+fn stable_float_str(value: f64) -> String {
     if value == 0.0 {
         return if value.is_sign_negative() {
             "-0.0".into()
@@ -108,7 +108,7 @@ fn py_float_str(value: f64) -> String {
 }
 
 fn round2(value: f64) -> f64 {
-    py_round(value * 100.0) / 100.0
+    round_half_even(value * 100.0) / 100.0
 }
 
 pub struct Scene {
@@ -369,7 +369,7 @@ impl Scene {
         }));
 
         if self.options.sun {
-            let label = format!("('sun', {})", py_float_str(round2(sun_anchor.0)));
+            let label = format!("('sun', {})", stable_float_str(round2(sun_anchor.0)));
             let mut ctx = self.base_ctx.child(&label);
             let cx = sun_anchor.0 + (sun_anchor.1 - sun_anchor.0) * (0.68 + ctx.rng.random() * 0.1);
             let cy = height * (0.2 + ctx.rng.random() * 0.08);
@@ -392,7 +392,7 @@ impl Scene {
         }
 
         if self.options.birds > 0 {
-            let label = format!("('birds', {})", py_float_str(round2(birds_anchor.0)));
+            let label = format!("('birds', {})", stable_float_str(round2(birds_anchor.0)));
             let mut ctx = self.base_ctx.child(&label);
             let ink = self.palette.ink_at(0.5, 0.6);
             for _ in 0..self.options.birds {
@@ -537,7 +537,7 @@ impl Scene {
     }
 
     /// Debug helper: reproduce the planned items for a chunk without building
-    /// its shapes. Used by the parity dump tools.
+    /// Used by the scene dump tools.
     #[doc(hidden)]
     pub fn debug_plans(&self, index: i32) -> Vec<crate::planner::PlanItem> {
         let xmin = index as f64 * self.chunk_width();

@@ -1,6 +1,6 @@
 //! Trees, shrubs, branches and bark.
 //!
-//! This is a close port of the original Python module, including its
+//! This is a close port of the original generator, including its
 //! deterministic random-number call order.
 
 use std::f64::consts::PI;

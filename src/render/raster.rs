@@ -1,12 +1,12 @@
-//! CPU rasteriser producing a bitmap that closely follows Pillow's drawing
-//! behaviour: aliased primitives drawn at a supersampled resolution and then
-//! reduced with a Lanczos filter.
+//! CPU rasteriser producing a bitmap that closely follows the reference
+//! renderer's behaviour: aliased primitives drawn at a supersampled resolution
+//! and then reduced with a Lanczos filter.
 
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::Path;
 
-use crate::color::{py_round, Color};
+use crate::color::{round_half_even, Color};
 use crate::finish::Finish;
 use crate::scene::Scene;
 use crate::shapes::Shape;
@@ -69,7 +69,7 @@ impl Bitmap {
         }
     }
 
-    /// Fill a polygon using the even-odd rule, matching Pillow's polygon fill.
+    /// Fill a polygon using the even-odd rule, matching the reference polygon fill.
     pub fn fill_polygon(&mut self, pts: &[(f64, f64)], color: Color) {
         if pts.len() < 3 {
             return;
@@ -140,8 +140,8 @@ impl Bitmap {
         }
     }
 
-    /// Fill a thick polyline. Joints are rounded, matching the look of Pillow's
-    /// wide outlines well enough for brush strokes.
+    /// Fill a thick polyline. Joints are rounded, matching the look of the
+    /// reference renderer's wide outlines well enough for brush strokes.
     pub fn stroke_polyline(&mut self, pts: &[(f64, f64)], color: Color, width: f64, closed: bool) {
         if pts.is_empty() || width <= 0.0 {
             return;
@@ -223,13 +223,13 @@ impl Bitmap {
             let x1 = (x + w - xmin) * scale;
             let y0 = y * scale;
             let y1 = (y + h) * scale;
-            let rows = py_round(y1 - y0).max(1.0) as i32;
+            let rows = round_half_even(y1 - y0).max(1.0) as i32;
             for i in 0..rows {
                 let t = i as f64 / (rows - 1).max(1) as f64;
                 let color = top.mix(bottom, t);
                 let yy = (y0 + i as f64) as i32;
-                let sx = py_round(x0) as i32;
-                let ex = py_round(x1) as i32;
+                let sx = round_half_even(x0) as i32;
+                let ex = round_half_even(x1) as i32;
                 if yy < 0 || yy >= self.height as i32 {
                     continue;
                 }
@@ -242,7 +242,7 @@ impl Bitmap {
             let x1 = (x + w - xmin) * scale;
             let y0 = y * scale;
             let y1 = (y + h) * scale;
-            let cols = py_round(x1 - x0).max(1.0) as i32;
+            let cols = round_half_even(x1 - x0).max(1.0) as i32;
             for i in 0..cols {
                 let t = i as f64 / (cols - 1).max(1) as f64;
                 let color = top.mix(bottom, t);
@@ -250,8 +250,8 @@ impl Bitmap {
                 if xx < 0 || xx >= self.width as i32 {
                     continue;
                 }
-                let sy = py_round(y0) as i32;
-                let ey = py_round(y1) as i32;
+                let sy = round_half_even(y0) as i32;
+                let ey = round_half_even(y1) as i32;
                 for py in sy.max(0)..=ey.min(self.height as i32 - 1) {
                     self.blend_pixel(xx, py, color, 1.0);
                 }
@@ -266,8 +266,8 @@ pub struct RenderOptions {
     pub xmin: f64,
     pub width: u32,
     pub height: u32,
-    /// Pixels per scene unit. The CLI keeps this at 1 so output matches the
-    /// Python renderer; the studio uses it to preview and export the same
+    /// Pixels per scene unit. The CLI keeps this at 1 so output keeps the
+    /// reference scale; the studio uses it to preview and export the same
     /// composition at different resolutions.
     pub scale: f64,
     pub paper_color: Option<Color>,
@@ -358,7 +358,7 @@ pub fn render_shapes_when(
                 }
                 if let Some(stroke) = poly.stroke {
                     if poly.width > 0.0 {
-                        let w = (py_round(poly.width * draw_scale)).max(1.0);
+                        let w = (round_half_even(poly.width * draw_scale)).max(1.0);
                         bitmap.stroke_polyline(&pts, stroke, w, true);
                     }
                 }
@@ -372,7 +372,7 @@ pub fn render_shapes_when(
                 }
                 if let Some(stroke) = circle.stroke {
                     if circle.width > 0.0 {
-                        let w = (py_round(circle.width * draw_scale)).max(1.0);
+                        let w = (round_half_even(circle.width * draw_scale)).max(1.0);
                         let mut ring = Vec::with_capacity(65);
                         for k in 0..=64 {
                             let a = k as f64 / 64.0 * std::f64::consts::TAU;
@@ -550,7 +550,7 @@ fn apply_grain(bitmap: &mut Bitmap, seed: u64) {
     let mut state = seed ^ 0xC0FFEE_u64;
     for y in 0..bitmap.height {
         for x in 0..bitmap.width {
-            // Box-Muller, sigma 7 around 128 like Pillow's effect_noise.
+            // Box-Muller, sigma 7 around 128, matching the reference grain model.
             let u1 = uniform(&mut state).max(1e-9);
             let u2 = uniform(&mut state);
             let gaussian = (-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos();
@@ -618,7 +618,7 @@ fn apply_finish(bitmap: &mut Bitmap, finish: Finish) {
     }
 }
 
-/// Write an RGB PNG using the pure-Rust encoder, matching Pillow's export.
+/// Write an RGB PNG using the pure-Rust encoder.
 pub fn save_png(path: &Path, bitmap: &Bitmap) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
