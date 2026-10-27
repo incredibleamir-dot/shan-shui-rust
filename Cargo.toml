@@ -31,7 +31,14 @@ gui-console = []
 
 [dependencies]
 ab_glyph = "0.2.32"
-eframe = { version = "0.37", default-features = false, features = ["glow", "default_fonts"], optional = true }
+# x11/wayland are not part of eframe's defaults once default-features is off,
+# and winit refuses to compile on Linux without at least one window backend.
+eframe = { version = "0.37", default-features = false, features = [
+    "glow",
+    "default_fonts",
+    "wayland",
+    "x11",
+], optional = true }
 png = "0.18.1"
 
 [target.'cfg(windows)'.dependencies]
